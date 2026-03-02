@@ -1,42 +1,54 @@
 from flask import Flask, request, jsonify
 import pandas as pd
 
+# -----------------------------------
+# Initialize Flask App
+# -----------------------------------
 app = Flask(__name__)
 
-df = pd.read_csv("indian_diseases_dataset.csv")
+# -----------------------------------
+# Load Dataset (Runs Once at Startup)
+# -----------------------------------
+try:
+    df = pd.read_csv("indian_diseases_dataset.csv")
 
-df = df[['bmi', 'disease_name']].dropna()
-df['bmi'] = pd.to_numeric(df['bmi'], errors='coerce')
-df = df.dropna()
+    # Keep only required columns
+    df = df[['BMI', 'Disease']].dropna()
 
+    # Ensure BMI is numeric
+    df['BMI'] = pd.to_numeric(df['BMI'], errors='coerce')
+    df = df.dropna()
+
+except Exception as e:
+    print("Error loading dataset:", e)
+    df = pd.DataFrame(columns=["BMI", "Disease"])
+
+
+# -----------------------------------
+# BMI Category Function
+# -----------------------------------
 def bmi_category(bmi):
     if bmi < 18.5:
         return "Underweight"
-    elif 18.5 <= bmi < 25:
+    elif bmi < 25:
         return "Normal"
-    elif 25 <= bmi < 30:
+    elif bmi < 30:
         return "Overweight"
     else:
         return "Obese"
 
 
-disease_counts = (
-    df.groupby(['bmi', 'disease_name'])
-      .size()
-      .reset_index(name='Count')
-)
+# -----------------------------------
+# Core Prediction Logic
+# -----------------------------------
+def get_top_diseases(user_bmi):
 
-#print(disease_counts)
-
-@app.route("/bmi&disease", methods=["POST"])
-def predict():
-
-    data = request.get_json()
-    user_bmi = float(data.get("bmi"))
-
-    # Filter near BMI ±1
+    # Filter BMI range ±1
     filtered = df[(df['BMI'] >= user_bmi - 1) &
                   (df['BMI'] <= user_bmi + 1)]
+
+    if filtered.empty:
+        return []
 
     top5 = (
         filtered['Disease']
@@ -46,10 +58,57 @@ def predict():
         .tolist()
     )
 
+    return top5
+
+
+# -----------------------------------
+# API Endpoint
+# -----------------------------------
+@app.route("/getDiseaseViaBmi", methods=["POST"])
+def predict():
+
+    data = request.get_json()
+
+    # Input validation
+    if not data or "bmi" not in data:
+        return jsonify({
+            "error": "BMI value is required"
+        }), 400
+
+    try:
+        user_bmi = float(data.get("bmi"))
+    except ValueError:
+        return jsonify({
+            "error": "Invalid BMI format"
+        }), 400
+
+    if user_bmi <= 0:
+        return jsonify({
+            "error": "BMI must be greater than 0"
+        }), 400
+
+    # Get prediction
+    diseases = get_top_diseases(user_bmi)
+
     return jsonify({
-        "bmi": user_bmi,
-        "top_diseases": top5
+        "input_bmi": user_bmi,
+        "bmi_category": bmi_category(user_bmi),
+        "top_diseases": diseases
     })
 
+
+# -----------------------------------
+# Health Check Route (Important for Render)
+# -----------------------------------
+@app.route("/")
+def home():
+    return jsonify({
+        "status": "API is running"
+    })
+
+
+# -----------------------------------
+# Run App
+# -----------------------------------
 if __name__ == "__main__":
     app.run(debug=True)
