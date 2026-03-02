@@ -13,15 +13,15 @@ try:
     df = pd.read_csv("indian_diseases_dataset.csv")
 
     # Keep only required columns
-    df = df[['BMI', 'Disease']].dropna()
+    df = df[['bmi', 'disease_name']].dropna()
 
     # Ensure BMI is numeric
-    df['BMI'] = pd.to_numeric(df['BMI'], errors='coerce')
+    df['bmi'] = pd.to_numeric(df['bmi'], errors='coerce')
     df = df.dropna()
 
 except Exception as e:
     print("Error loading dataset:", e)
-    df = pd.DataFrame(columns=["BMI", "Disease"])
+    df = pd.DataFrame(columns=["bmi", "bmi"])
 
 
 # -----------------------------------
@@ -37,51 +37,75 @@ def bmi_category(bmi):
     else:
         return "Obese"
 
+
 # -----------------------------------
-# Updated Core Prediction Logic
+# Core Prediction Logic
 # -----------------------------------
 def get_top_diseases(user_bmi):
-    # 1. Try the specific range first (±1.5 for a slightly better reach)
-    filtered = df[(df['BMI'] >= user_bmi - 1.5) &
-                  (df['BMI'] <= user_bmi + 1.5)]
+
+    # Filter BMI range ±1
+    filtered = df[(df['bmi'] >= user_bmi - 1.5) &
+                  (df['bmi'] <= user_bmi + 1.5)]
 
     if not filtered.empty:
-        return filtered['Disease'].value_counts().head(5).index.tolist()
+        return filtered['disease_name'].value_counts().head(5).index.tolist()
 
-    # 2. Fallback: If range is empty, search by Category
-    category = bmi_category(user_bmi)
+    top5 = (
+        filtered['disease_name']
+        .value_counts()
+        .head(5)
+        .index
+        .tolist()
+    )
 
-    # We need to map BMI back to categories in the dataframe to filter
-    # This assumes your dataset has enough variety to cover categories
-    cat_filtered = df[df['BMI'].apply(bmi_category) == category]
+    return top5
 
-    if not cat_filtered.empty:
-        return cat_filtered['Disease'].value_counts().head(5).index.tolist()
-
-    # 3. Final Fallback: Return top 5 most common diseases in the entire dataset
-    return df['Disease'].value_counts().head(5).index.tolist()
 
 # -----------------------------------
-# API Endpoint (Same as before, logic is inside the function above)
+# API Endpoint
 # -----------------------------------
 @app.route("/getDiseaseViaBmi", methods=["POST"])
 def predict():
+
     data = request.get_json()
+
+    # Input validation
     if not data or "bmi" not in data:
-        return jsonify({"error": "BMI value is required"}), 400
+        return jsonify({
+            "error": "BMI value is required"
+        }), 400
 
     try:
         user_bmi = float(data.get("bmi"))
     except ValueError:
-        return jsonify({"error": "Invalid format"}), 400
+        return jsonify({
+            "error": "Invalid BMI format"
+        }), 400
 
+    if user_bmi <= 0:
+        return jsonify({
+            "error": "BMI must be greater than 0"
+        }), 400
+
+    # Get prediction
     diseases = get_top_diseases(user_bmi)
 
     return jsonify({
         "input_bmi": user_bmi,
         "bmi_category": bmi_category(user_bmi),
-        "top_diseases": diseases  # This will no longer be empty!
+        "top_diseases": diseases
     })
+
+
+# -----------------------------------
+# Health Check Route (Important for Render)
+# -----------------------------------
+@app.route("/")
+def home():
+    return jsonify({
+        "status": "API is running"
+    })
+
 
 # -----------------------------------
 # Run App
