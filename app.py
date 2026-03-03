@@ -1,5 +1,8 @@
+import joblib
 from flask import Flask, request, jsonify
 import pandas as pd
+import numpy as np
+
 # -----------------------------------
 # Initialize Flask App
 # -----------------------------------
@@ -7,6 +10,7 @@ app = Flask(__name__)
 # -----------------------------------
 # Load Dataset (Runs Once at Startup)
 # -----------------------------------
+
 try:
     df = pd.read_csv("indian_diseases_dataset.csv")
     df.columns = df.columns.str.strip()
@@ -98,65 +102,93 @@ def predict():
     })
 
 
-#----------------------
-#GET TOP DISEASE BY AGE GROUP ONLY
-#----------------------
-
-def get_top_diseases_by_age_group(df, age):
-    """
-    Returns top 5 diseases for given age group in JSON serializable format.
-    """
-
-    age_group_df = df[df['age'] == age]
-
-    
-
-    if age_group_df.empty:
-        return None
-
-    top_diseases = (
-        age_group_df['disease_category']
-        .value_counts()
-        .head(5)
-    )
-
-    # Convert to list of dictionaries
-    result = [
-        {"disease": disease, "count": int(count)}
-        for disease, count in top_diseases.items()
-    ]
-
-    return result
-
-@app.route("/top-diseases-by-age-group", methods=["POST"])
-def top_diseases():
-
-    data = request.get_json()
-
-    if not data or "age" not in data:
-        return jsonify({"error": "age is required"}), 400
-
-    age = data["age"]
-
-    result = get_top_diseases_by_age_group(df, age)
-
-    if result is None:
-        return jsonify({"message": "No data found"}), 404
-
-    return jsonify({
-        "age": age,
-        "top_diseases": result
-    })
+# -----------------------------
+# Load Saved Models
+# -----------------------------
+model_category = joblib.load("model_category.pkl")
+category_models = joblib.load("category_models.pkl")
+mlb = joblib.load("mlb.pkl")
 
 
-# -----------------------------------
-# Health Check Route (Important for Render)
-# -----------------------------------
+# -----------------------------
+# Home Route
+# -----------------------------
 @app.route("/")
 def home():
-    return jsonify({
-        "status": "API is running"
-    })
+    return "Two-Stage Disease Prediction API Running"
+
+
+# -----------------------------
+# Prediction Route
+# -----------------------------
+@app.route("/symptomsPrediction", methods=["POST"])
+def predict():
+
+    try:
+        data = request.json
+
+        user_symptoms = data.get("symptoms", [])
+        age = data.get("age")
+        gender = data.get("gender")
+        smoking = data.get("smoking")
+        alcohol = data.get("alcohol")
+        bmi = data.get("bmi")
+
+        # -------------------------
+        # Prepare Symptom Vector
+        # -------------------------
+        input_symptoms = np.zeros(len(mlb.classes_))
+        user_symptoms = [s.lower().strip() for s in user_symptoms]
+
+        for symptom in user_symptoms:
+            if symptom in mlb.classes_:
+                idx = list(mlb.classes_).index(symptom)
+                input_symptoms[idx] = 1
+
+        # -------------------------
+        # Encode Lifestyle
+        # -------------------------
+        gender_val = 1 if gender.lower() == "male" else 0
+
+        smoking_map = {"never": 0, "former": 1, "current": 2}
+        alcohol_map = {"none": 0, "occasional": 1, "regular": 2, "heavy": 3}
+
+        smoking_val = smoking_map.get(smoking.lower(), 0)
+        alcohol_val = alcohol_map.get(alcohol.lower(), 0)
+
+        # -------------------------
+        # Combine Features
+        # -------------------------
+        input_vector = np.concatenate([
+            input_symptoms,
+            [age],
+            [gender_val],
+            [smoking_val],
+            [alcohol_val],
+            [bmi]
+        ])
+
+        input_vector = input_vector.reshape(1, -1)
+
+        # -------------------------
+        # Stage 1: Category
+        # -------------------------
+        predicted_category = model_category.predict(input_vector)[0]
+
+        # -------------------------
+        # Stage 2: Disease
+        # -------------------------
+        disease_model = category_models[predicted_category]
+        predicted_disease = disease_model.predict(input_vector)[0]
+
+        return jsonify({
+            "predicted_category": predicted_category,
+            "predicted_disease": predicted_disease
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
 
 
 # -----------------------------------
