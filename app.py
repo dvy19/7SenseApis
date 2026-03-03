@@ -1,27 +1,27 @@
 from flask import Flask, request, jsonify
 import pandas as pd
-
 # -----------------------------------
 # Initialize Flask App
 # -----------------------------------
 app = Flask(__name__)
-
 # -----------------------------------
 # Load Dataset (Runs Once at Startup)
 # -----------------------------------
 try:
     df = pd.read_csv("indian_diseases_dataset.csv")
+    df.columns = df.columns.str.strip()
 
     # Keep only required columns
-    df = df[['bmi', 'disease_name']].dropna()
+    df=df.dropna()
 
     # Ensure BMI is numeric
     df['bmi'] = pd.to_numeric(df['bmi'], errors='coerce')
-    df = df.dropna()
+
+
 
 except Exception as e:
     print("Error loading dataset:", e)
-    df = pd.DataFrame(columns=["bmi", "bmi"])
+    df = pd.DataFrame()
 
 
 # -----------------------------------
@@ -42,6 +42,7 @@ def bmi_category(bmi):
 # Core Prediction Logic
 # -----------------------------------
 def get_top_diseases(user_bmi):
+    bmi_df = df[['bmi', 'disease_name']].dropna()
 
     # Filter BMI range ±1
     filtered = df[(df['bmi'] >= user_bmi - 1.5) &
