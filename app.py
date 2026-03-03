@@ -136,9 +136,9 @@ def top_diseases():
     if not data or "age" not in data:
         return jsonify({"error": "age is required"}), 400
 
-    age_group = data["age"]
+    age = data["age"]
 
-    result = get_top_diseases_by_age_group(df, age_group)
+    result = get_top_diseases_by_age_group(df, age)
 
     if result is None:
         return jsonify({"message": "No data found"}), 404
