@@ -97,6 +97,55 @@ def predict():
     })
 
 
+#----------------------
+#GET TOP DISEASE BY AGE GROUP ONLY
+#----------------------
+
+def get_top_diseases_by_age_group(df, age_group):
+    """
+    Returns top 5 diseases for given age group in JSON serializable format.
+    """
+
+    age_group_df = df[df['age_group'] == age_group]
+
+    if age_group_df.empty:
+        return None
+
+    top_diseases = (
+        age_group_df['disease_category']
+        .value_counts()
+        .head(5)
+    )
+
+    # Convert to list of dictionaries
+    result = [
+        {"disease": disease, "count": int(count)}
+        for disease, count in top_diseases.items()
+    ]
+
+    return result
+
+@app.route("/top-diseases-by-age-group", methods=["POST"])
+def top_diseases():
+
+    data = request.get_json()
+
+    if not data or "age_group" not in data:
+        return jsonify({"error": "age_group is required"}), 400
+
+    age_group = data["age_group"]
+
+    result = get_top_diseases_by_age_group(df, age_group)
+
+    if result is None:
+        return jsonify({"message": "No data found"}), 404
+
+    return jsonify({
+        "age_group": age_group,
+        "top_diseases": result
+    })
+
+
 # -----------------------------------
 # Health Check Route (Important for Render)
 # -----------------------------------
