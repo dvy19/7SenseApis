@@ -122,7 +122,7 @@ def home():
 # Prediction Route
 # -----------------------------
 @app.route("/symptomsPrediction", methods=["POST"])
-def predict():
+def predict_disease_via_symptoms():
 
     try:
         data = request.json
