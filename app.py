@@ -102,12 +102,14 @@ def predict():
 #GET TOP DISEASE BY AGE GROUP ONLY
 #----------------------
 
-def get_top_diseases_by_age_group(df, age_group):
+def get_top_diseases_by_age_group(df, age):
     """
     Returns top 5 diseases for given age group in JSON serializable format.
     """
 
-    age_group_df = df[df['age_group'] == age_group]
+    age_group_df = df[df['age'] == age]
+
+    
 
     if age_group_df.empty:
         return None
@@ -131,10 +133,10 @@ def top_diseases():
 
     data = request.get_json()
 
-    if not data or "age_group" not in data:
-        return jsonify({"error": "age_group is required"}), 400
+    if not data or "age" not in data:
+        return jsonify({"error": "age is required"}), 400
 
-    age_group = data["age_group"]
+    age_group = data["age"]
 
     result = get_top_diseases_by_age_group(df, age_group)
 
@@ -142,7 +144,7 @@ def top_diseases():
         return jsonify({"message": "No data found"}), 404
 
     return jsonify({
-        "age_group": age_group,
+        "age": age,
         "top_diseases": result
     })
 
