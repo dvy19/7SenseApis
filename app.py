@@ -194,6 +194,7 @@ def predict_disease_via_symptoms():
 # Get Medicine Details
 # -----------------------------
 
+medicine_df=pd.read_csv("Medicine_Details.csv")
 
 @app.route('/get_medicine', methods=['GET'])
 def get_medicine():
@@ -203,7 +204,7 @@ def get_medicine():
     if not medicine_name:
         return jsonify({"error": "Please provide medicine name"}), 400
 
-    result = df[df["medicine_name"].str.contains(medicine_name, case=False, na=False)]
+    result = medicine_df[medicine_df["medicine_name"].str.contains(medicine_name, case=False, na=False)]
 
     if result.empty:
         return jsonify({"message": "Medicine not found"})
