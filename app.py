@@ -190,6 +190,27 @@ def predict_disease_via_symptoms():
         return jsonify({"error": str(e)}), 400
 
 
+# -----------------------------
+# Get Medicine Details
+# -----------------------------
+
+
+@app.route('/get_medicine', methods=['GET'])
+def get_medicine():
+
+    medicine_name = request.args.get("name")
+
+    if not medicine_name:
+        return jsonify({"error": "Please provide medicine name"}), 400
+
+    result = df[df["Medicine Name"].str.contains(medicine_name, case=False, na=False)]
+
+    if result.empty:
+        return jsonify({"message": "Medicine not found"})
+
+    medicine_data = result.iloc[0].to_dict()
+
+    return jsonify(medicine_data)
 
 # -----------------------------------
 # Run App
