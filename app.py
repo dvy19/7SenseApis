@@ -203,7 +203,7 @@ def get_medicine():
     if not medicine_name:
         return jsonify({"error": "Please provide medicine name"}), 400
 
-    result = df[df["Medicine Name"].str.contains(medicine_name, case=False, na=False)]
+    result = df[df["medicine_name"].str.contains(medicine_name, case=False, na=False)]
 
     if result.empty:
         return jsonify({"message": "Medicine not found"})
