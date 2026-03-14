@@ -196,6 +196,7 @@ def predict_disease_via_symptoms():
 
 medicine_df=pd.read_csv("Medicine_Details.csv")
 medicine_df.columns = medicine_df.columns.str.strip().str.lower().str.replace(" ", "_")
+medicine_df = medicine_df.loc[:, ~medicine_df.columns.str.contains("^unnamed")]
 @app.route('/get_medicine', methods=['GET'])
 def get_medicine():
 
